@@ -1,0 +1,239 @@
+
+
+CREATE DATABASE HospitalAppointmentSystem;
+
+
+use HospitalAppointmentSystem;
+
+--Table: Specialization 
+
+CREATE TABLE Specialization(
+SpecializationID INT PRIMARY KEY,
+SpecializationName VARCHAR(100) NOT NULL);
+
+---- Table: Doctor
+
+CREATE TABLE Doctor(
+DoctorID INT PRIMARY KEY,
+FirstName VARCHAR(50),
+LastName VARCHAR(50),
+Gender VARCHAR(50),
+Email VARCHAR(50),
+Phone VARCHAR(50),
+SpecializationID INT,
+JoiningDate DATE,
+FOREIGN KEY (SpecializationID) REFERENCES Specialization(SpecializationID));
+
+-- Table: Patient
+
+Create TABLE Patient(
+PatientID INT PRIMARY KEY,
+FirstName VARCHAR(50),
+LastName VARCHAR(50),
+Gender VARCHAR(10),
+DOB DATE,
+Phone VARCHAR(20),
+Email VARCHAR(100),
+Address VARCHAR(255),
+CreateDate DATETIME DEFAULT GETDATE());
+
+
+-- Table: Appointment
+
+CREATE TABLE Appointment(
+AppointmentID INT PRIMARY KEY,
+PatientID INT,
+DoctorID INT,
+AppointmentDate DATE,
+SlotTime TIME,
+Status VARCHAR(20),
+CreatedDate DATETIME DEFAULT GETDATE(),
+FOREIGN KEY (PatientID) REFERENCES Patient(PatientID),
+FOREIGN KEY (DoctorID) REFERENCES Doctor(DoctorID));
+
+-- Table: Payment
+
+CREATE TABLE Payment(
+PaymentID INT PRIMARY KEY,
+AppointmentID INT UNIQUE,
+PaymentDate DATE,
+Amount DECIMAL(10,2),
+PaymentMode VARCHAR(50),
+PaymentStatus VARCHAR(50),
+FOREIGN KEY(AppointmentID) REFERENCES Appointment(AppointmentID));
+
+-- Table: Prescription
+
+
+CREATE TABLE Prescription (
+PrescriptionID INT PRIMARY KEY,
+AppointmentID INT UNIQUE,
+Diagnosis TEXT,
+Medication TEXT,
+Instructions TEXT,
+PrescribedDate DATE,
+FOREIGN KEY (AppointmentID)REFERENCES Appointment(AppointmentID));
+
+-- Table: Admin (optional)
+
+CREATE TABLE Admin (
+    AdminID INT PRIMARY KEY,
+    Username VARCHAR(50) NOT NULL,
+    PasswordHash VARCHAR(255) NOT NULL,
+    Email VARCHAR(100),
+    Role VARCHAR(50)
+);
+
+
+INSERT INTO Specialization (SpecializationID, SpecializationName)
+VALUES 
+(1, 'Cardiologist'),
+(2, 'Dermatologist'),
+(3, 'Pediatrician'),
+(4, 'Neurologist');
+
+INSERT INTO Doctor (DoctorID, FirstName, LastName, Gender, Email, Phone, SpecializationID, JoiningDate)
+VALUES 
+(101, 'John', 'Smith', 'Male', 'john.smith@hospital.com', '1234567890', 1, '2020-01-15'),
+(102, 'Emily', 'Clark', 'Female', 'emily.clark@hospital.com', '9876543210', 2, '2021-03-22');
+
+
+INSERT INTO Patient (PatientID, FirstName, LastName, Gender, DOB, Phone, Email, Address)
+VALUES 
+(201, 'Alex', 'Martin', 'Male', '1990-08-12', '5551234567', 'alex.martin@gmail.com', '123 Main Street'),
+(202, 'Sarah', 'Lee', 'Female', '1985-11-03', '5559876543', 'sarah.lee@gmail.com', '456 Elm Street');
+
+
+INSERT INTO Appointment (AppointmentID, PatientID, DoctorID, AppointmentDate, SlotTime, Status)
+VALUES 
+(301, 201, 101, '2025-04-25', '10:00:00', 'Booked'),
+(302, 202, 102, '2025-04-26', '11:30:00', 'Completed');
+
+
+INSERT INTO Payment (PaymentID, AppointmentID, PaymentDate, Amount, PaymentMode, PaymentStatus)
+VALUES 
+(401, 301, '2025-04-25', 500.00, 'Credit Card', 'Paid'),
+(402, 302, '2025-04-26', 700.00, 'Cash', 'Paid');
+
+
+INSERT INTO Prescription (PrescriptionID, AppointmentID, Diagnosis, Medication, Instructions, PrescribedDate)
+VALUES 
+(501, 302, 'Skin Rash', 'Cetirizine 10mg', 'Take one tablet daily after meals', '2025-04-26');
+
+
+INSERT INTO Admin (AdminID, Username, PasswordHash, Email, Role)
+VALUES 
+(1, 'admin_user', 'hashed_password_example', 'admin@hospital.com', 'SystemAdmin');
+
+
+-- Should fail: DoctorID 999 does not exist
+INSERT INTO Appointment (AppointmentID, PatientID, DoctorID, AppointmentDate, SlotTime, Status)
+VALUES (999, 201, 999, '2025-05-01', '10:00:00', 'Booked');
+
+SELECT * FROM Appointment;
+
+
+-- Should fail: AppointmentID 301 already has a payment
+INSERT INTO Payment (PaymentID, AppointmentID, PaymentDate, Amount, PaymentMode, PaymentStatus)
+VALUES (403, 301, '2025-04-25', 500.00, 'Cash', 'Paid');
+
+SELECT * FROM Payment;
+
+-- Should succeed: Valid patient and doctor
+
+INSERT INTO Appointment (AppointmentID, PatientID, DoctorID, AppointmentDate, SlotTime, Status)
+VALUES (303, 201, 101, '2025-04-27', '09:00:00', 'Booked');
+
+SELECT * FROM Appointment;
+SELECT * FROM Doctor;
+SELECT * FROM Specialization;
+
+
+--Create View: Daily Appointments with Doctor & Specialization
+
+CREATE VIEW View_DailyAppointments AS
+SELECT
+A.AppointmentID,
+D.FirstName + ' ' + D.LastName AS DoctorName,
+S.SpecializationID,
+COUNT(*) AS TotalAppointments
+FROM Appointment AS A
+JOIN Doctor AS D
+ON A.DoctorID = D.DoctorID
+JOIN Specialization AS S
+ON D.SpecializationID = S.SpecializationID
+GROUP BY A.AppointmentID,D.FirstName, D.LastName, S.SpecializationID;
+
+SELECT * FROM View_DailyAppointments;
+
+--Create View: Patient Appointment History
+
+CREATE View View_PatientHistory AS
+SELECT
+P.PatientID,
+P.FirstName + ' '+ P.LastName AS PatientName,
+A.AppointmentID,
+D.FirstName + ' ' + D.LastName AS DoctorName,
+S.SpecializationID,
+PR.Diagnosis,
+PR.Medication
+FROM Patient AS P
+JOIN Appointment AS A
+ON P.PatientID = A.PatientID
+JOIN Doctor AS D
+ON A.DoctorID = D.DoctorID
+JOIN Specialization AS S
+ON D.SpecializationID = S.SpecializationID
+LEFT JOIN Prescription AS PR
+ON A.AppointmentID = PR.AppointmentID;
+
+
+SELECT * FROM Doctor;
+SELECT * FROM Specialization;
+SELECT * FROM Prescription;
+SELECT * FROM Patient;
+
+SELECT * FROM View_PatientHistory;
+
+--Create SP: Get Appointments by Doctor
+
+
+CREATE OR ALTER PROCEDURE sp_GetAppointmentsbyDoctor
+	@DoctorID INT
+AS
+BEGIN
+	SELECT
+	A.AppointmentID,
+	A.AppointmentDate,
+	A.SlotTime,
+	P.FirstName + ' ' + P.LastName AS PatientName,
+	A.Status
+	FROM Appointment AS A
+	JOIN Patient AS P
+	ON A.PatientID = P.PatientID
+	WHERE DoctorID = @DoctorID
+	ORDER BY A.AppointmentDate, A.SlotTime
+END;
+
+EXEC sp_GetAppointmentsbyDoctor @DoctorID = 101;
+
+-- ➤ Total Appointments per Specialization
+
+
+SELECT 
+    S.SpecializationName,
+    COUNT(*) AS AppointmentCount
+FROM Appointment A
+JOIN Doctor D ON A.DoctorID = D.DoctorID
+JOIN Specialization S ON D.SpecializationID = S.SpecializationID
+GROUP BY S.SpecializationName
+ORDER BY AppointmentCount DESC;
+
+--➤ Revenue by Payment Mode
+
+SELECT 
+    PaymentMode,
+    SUM(Amount) AS TotalRevenue
+FROM Payment
+GROUP BY PaymentMode;
+
